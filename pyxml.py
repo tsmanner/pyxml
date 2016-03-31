@@ -38,6 +38,14 @@ class XmlTag:
         else:
             raise IndexError("Index given to XmlTag is not a string or int!")
 
+    def __contains__(self, item):
+        if isinstance(item, str):
+            return item in self.attributes
+        elif isinstance(item, int):
+            return item in self.elements
+        else:
+            return False
+
     def __str__(self):
         s = "<" + self.name
         for key in self.attributes:
