@@ -8,6 +8,46 @@ class XmlSyntaxError(SyntaxError):
         super().__init__(*args, **kwargs)
 
 
+class XmlTag:
+    def __init__(self, name):
+        self.name = name
+        self.attributes = {}
+        self.elements = []
+
+    def add_attribute(self, token):
+        split = token.split("=")
+        if re.match("[0-9]+", split[1]):
+            self.attributes[split[0]] = int(split[1])
+        elif re.match("[0-9A-Fa-f]+", split[1]):
+            self.attributes[split[0]] = int(split[1], 16)
+        elif re.match("[0-9]+\.[0-9]+", split[1]):
+            self.attributes[split[0]] = float(split[1])
+        elif re.match("[0-9A-Fa-f]+\.[0-9A-Fa-f]+", split[1]):
+            self.attributes[split[0]] = float(split[1])
+        else:
+            self.attributes[split[0]] = split[1]
+
+    def __iter__(self):
+        return self.elements.__iter__()
+
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            return self.attributes[item]
+        elif isinstance(item, int):
+            return self.elements[item]
+        else:
+            raise IndexError("Index given to XmlTag is not a string or int!")
+
+    def __str__(self):
+        s = "<" + self.name
+        for key in self.attributes:
+            s += " " + key + "=" + self.attributes[key]
+        s += ">"
+        s += ' '.join([str(element) for element in self.elements])
+        s += "</" + self.name + ">"
+        return s
+
+
 class XmlParser:
     def __init__(self, xml_file):
         self.xml_file = xml_file
@@ -119,38 +159,6 @@ class XmlParser:
             else:
                 tag.elements.append(self.token)
             self.token = ""
-
-
-class XmlTag:
-    def __init__(self, name):
-        self.name = name
-        self.attributes = {}
-        self.elements = []
-
-    def add_attribute(self, token):
-        split = token.split("=")
-        if re.match("[0-9]+", split[1]):
-            self.attributes[split[0]] = int(split[1])
-        elif re.match("[0-9A-Fa-f]+", split[1]):
-            self.attributes[split[0]] = int(split[1], 16)
-        elif re.match("[0-9]+\.[0-9]+", split[1]):
-            self.attributes[split[0]] = float(split[1])
-        elif re.match("[0-9A-Fa-f]+\.[0-9A-Fa-f]+", split[1]):
-            self.attributes[split[0]] = float(split[1])
-        else:
-            self.attributes[split[0]] = split[1]
-
-    def __iter__(self):
-        return self.elements.__iter__()
-
-    def __str__(self):
-        s = "<" + self.name
-        for key in self.attributes:
-            s += " " + key + "=" + self.attributes[key]
-        s += ">"
-        s += ' '.join([str(element) for element in self.elements])
-        s += "</" + self.name + ">"
-        return s
 
 
 def parse_xml(filename):
