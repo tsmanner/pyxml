@@ -41,10 +41,7 @@ class XmlTag:
     def __contains__(self, item):
         if isinstance(item, str):
             return item in self.attributes
-        elif isinstance(item, int):
-            return item in self.elements
-        else:
-            return False
+        return item in self.elements
 
     def __str__(self):
         s = "<" + self.name
@@ -59,114 +56,119 @@ class XmlTag:
 class XmlParser:
     def __init__(self, xml_file):
         self.xml_file = xml_file
-        self.stream = None
-        self.charno = 0
-        self.lineno = 1
-        self.token = ""
-        self.char = None
-        self.data = {}
+        self._stream = None
+        self._lineno = None
+        self._charno = None
+        self._token = None
+        self._char = None
+        self.data = []
         self.parse()
 
     def next_char(self):
-        self.char = self.stream.read(1)
-        if self.char == os.linesep:
-            self.lineno += 1
-            self.charno = 0
-        self.charno += 1
+        self._char = self._stream.read(1)
+        if self._char == os.linesep:
+            self._lineno += 1
+            self._charno = 0
+        self._charno += 1
 
     def parse(self):
-        with open(self.xml_file) as self.stream:
-            self.lineno = 1
-            self.charno = 0
-            self.token = ""
+        self.data = []
+        with open(self.xml_file) as self._stream:
+            self._lineno = 1
+            self._charno = 0
+            self._token = ""
             self.next_char()
-            while self.char != "":
-                if self.char in string.whitespace:
+            while self._char != "":
+                if self._char in string.whitespace:
                     self.next_char()
                     continue
-                if self.char != "<" and self.token == "":
+                if self._char != "<" and self._token == "":
                     msg = 'Text encountered outside tags in "' + self.xml_file +\
-                          '", line ' + str(self.lineno) + ', char ' + str(self.charno)
+                          '", line ' + str(self._lineno) + ', char ' + str(self._charno)
                     raise XmlSyntaxError(msg)
-                    self.next_char()
                 else:
-                    self.token += self.char
-                    while self.char not in string.whitespace + ">":
+                    self._token += self._char
+                    while self._char not in string.whitespace + ">":
                         self.next_char()
-                        self.token += self.char
-                    if self.token.startswith("<!--"):
+                        self._token += self._char
+                    if self._token.startswith("<!--"):
                         self.parse_comment()
                     else:
                         tag = self.parse_tag()
-                    self.token = ""
-                self.data[tag.name] = tag
+                    self._token = ""
+                self.data.append(tag)
+        self._stream = None
+        self._lineno = None
+        self._charno = None
+        self._token = None
+        self._char = None
 
     def parse_comment(self):
-        while not self.token.endswith("-->"):
+        while not self._token.endswith("-->"):
             self.next_char()
-            self.token += self.char
-        self.token = ""
+            self._token += self._char
+        self._token = ""
         self.next_char()
 
     def parse_tag(self):
-        tagname = self.token.strip(string.whitespace + "<>")
+        tagname = self._token.strip(string.whitespace + "<>")
         tag = XmlTag(tagname)
         self.next_char()
-        if not self.token.endswith(">"):
+        if not self._token.endswith(">"):
             self.parse_attributes(tag)
         self.parse_elements(tag)
         return tag
 
     def parse_attributes(self, tag):
-        self.token = ""
+        self._token = ""
         while True:
-            while self.char in string.whitespace:
+            while self._char in string.whitespace:
                 self.next_char()
-            while self.char not in string.whitespace + ">":
-                self.token += self.char
+            while self._char not in string.whitespace + ">":
+                self._token += self._char
                 self.next_char()
-            if self.token.startswith("<!--"):
+            if self._token.startswith("<!--"):
                 self.parse_comment()
             else:
-                tag.add_attribute(self.token)
-            if self.char == ">":
+                tag.add_attribute(self._token)
+            if self._char == ">":
                 # We're done parsing attributes, move on to the contents
                 break
-            elif self.char == "":
+            elif self._char == "":
                 msg = 'EoF encountered while parsing tag in "' + self.xml_file +\
-                      '", line ' + str(self.lineno) + ', char ' + str(self.charno)
+                      '", line ' + str(self._lineno) + ', char ' + str(self._charno)
                 raise XmlSyntaxError(msg)
-            self.token = ""
+            self._token = ""
         # Advance one char past the ">"
         self.next_char()
 
     def parse_elements(self, tag):
-        self.token = ""
+        self._token = ""
         while True:
-            if self.token.startswith("<!--"):
+            if self._token.startswith("<!--"):
                 self.parse_comment()
-            if self.char in string.whitespace:
+            if self._char in string.whitespace:
                 self.next_char()
                 continue
-            self.token += self.char
+            self._token += self._char
             while True:
                 self.next_char()
-                if self.char in string.whitespace + "<":
+                if self._char in string.whitespace + "<":
                     break
-                self.token += self.char
-            if self.token.startswith("<!--"):
+                self._token += self._char
+            if self._token.startswith("<!--"):
                 self.parse_comment()
-            elif self.token.startswith("</" + tag.name):
+            elif self._token.startswith("</" + tag.name):
                 self.next_char()
                 break
-            elif self.token.startswith("<"):
-                if len(self.token) == 1:
+            elif self._token.startswith("<"):
+                if len(self._token) == 1:
                     self.next_char()
                     continue
                 tag.elements.append(self.parse_tag())
             else:
-                tag.elements.append(self.token)
-            self.token = ""
+                tag.elements.append(self._token)
+            self._token = ""
 
 
 def parse_xml(filename):
@@ -176,6 +178,6 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) == 2 and os.path.exists(sys.argv[1]):
         parser = XmlParser(sys.argv[1])
-        [print(parser.data[k]) for k in parser.data]
+        [print(tag) for tag in parser.data]
 
 
