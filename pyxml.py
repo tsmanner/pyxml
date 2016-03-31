@@ -140,6 +140,9 @@ class XmlTag:
         else:
             self.attributes[split[0]] = split[1]
 
+    def __iter__(self):
+        return self.elements.__iter__()
+
     def __str__(self):
         s = "<" + self.name
         for key in self.attributes:
